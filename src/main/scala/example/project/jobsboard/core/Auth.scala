@@ -19,6 +19,7 @@ import cats.data.OptionT
 import tsec.authentication.BackingStore
 import tsec.common.SecureRandomId
 import cats.effect.kernel.Ref
+import example.project.jobsboard.config.SecurityConfig
 
 trait Auth[F[_]]:
   def login(email: String, password: String): F[Option[JwtToken]]
@@ -81,7 +82,7 @@ object Auth:
       BCrypt.checkpwBool[F](password, PasswordHash[BCrypt](hashedPassword))
   }
 
-  def of[F[_]: Sync](users: Users[F]): F[Auth[F]] = {
+  def of[F[_]: Sync](users: Users[F])(securityConfig: SecurityConfig): F[Auth[F]] = {
     // 1. Indentity store
     val idStore: IdentityStore[F, String, User] = (email: String) => OptionT(users.find(email))
 
@@ -96,14 +97,14 @@ object Auth:
     }
 
     // 3. Hashing key
-    val keyF = HMACSHA256.buildKey[F]("secret-key".getBytes("UTF-8")) // TODO: extract secret key to config
+    val keyF = HMACSHA256.buildKey[F](securityConfig.secret.getBytes("UTF-8"))
 
     // 4. Authenticator and 5. Auth
     for {
       key        <- keyF
       tokenStore <- tokenStoreF
       authenticator = JWTAuthenticator.backed.inBearerToken(
-        expiryDuration = 1.day, // TODO: extract to config?
+        expiryDuration = securityConfig.jwtExpiryDuration,
         maxIdle        = None,
         tokenStore     = tokenStore,
         identityStore  = idStore,
