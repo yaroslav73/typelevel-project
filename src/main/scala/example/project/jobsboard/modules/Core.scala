@@ -7,11 +7,17 @@ import doobie.util.transactor.Transactor
 import example.project.jobsboard.core.Jobs
 import example.project.jobsboard.core.Jobs.LiveJobs
 import org.typelevel.log4cats.Logger
+import example.project.jobsboard.core.Auth
+import example.project.jobsboard.core.Users
 
-final case class Core[F[_]] private (val jobs: Jobs[F])
+final class Core[F[_]] private (val jobs: Jobs[F], val auth: Auth[F])
 
 object Core:
   def apply[F[_]: Async: Logger](xa: Transactor[F]): Resource[F, Core[F]] =
-    Resource
-      .eval(LiveJobs(xa))
-      .map(jobs => new Core(jobs))
+    val core = for {
+      jobs <- LiveJobs(xa)
+      users = Users.make[F](xa)
+      auth <- Auth.of(users)
+    } yield new Core(jobs, auth)
+
+    Resource.eval(core)
