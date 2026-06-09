@@ -84,6 +84,7 @@ class AuthRoutes[F[_]: Concurrent: Logger] private (auth: Auth[F]) extends Http4
   private val logoutRoute: AuthRoute[F] = {
     case secured @ POST -> Root / "logout" asAuthed _ =>
       for {
+        _        <- Logger[F].info(s"User ${secured.authenticator.identity} logged out")
         _        <- authenticator.discard(secured.authenticator)
         response <- Ok()
       } yield response
