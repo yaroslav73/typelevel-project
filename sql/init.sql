@@ -30,7 +30,7 @@ CREATE TABLE users(
   firstName TEXT NOT NULL,
   lastName TEXT,
   company TEXT,
-  role TEXT NOT NULL,
+  role TEXT NOT NULL
 );
 
 ALTER TABLE users
