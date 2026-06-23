@@ -59,15 +59,17 @@ class AuthRoutes[F[_]: Concurrent: Logger] private (auth: Auth[F]) extends Http4
   // POST /auth/signup json { new user } => 201 Created with User
   private val signupRoute: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ POST -> Root / "signup" =>
-      for {
-        newUser  <- req.as[User.New]
-        user     <- auth.signUp(newUser)
-        response <- user.fold(BadRequest(FailureResponse("User already exists")))(user => Created(user))
-      } yield response
+      println(s"res result: ${req.as[User.New]}")
+      req.validate[User.New] { newUser =>
+        for {
+          userOpt  <- auth.signUp(newUser)
+          response <- userOpt.fold(BadRequest(FailureResponse("User already exists")))(user => Created(user))
+        } yield response
+      }
   }
 
   // POST /auth/change-password json { new password info } { Authorization: Bearer } => Ok with updated user
-  private val changePasswordRoute: AuthRoute[F] = { // HttpRoutes.of[F] {
+  private val changePasswordRoute: AuthRoute[F] = {
     case secured @ POST -> Root / "change-password" asAuthed user =>
       secured.request.validate[NewPasswordInfo] { passwordInfo =>
         for {

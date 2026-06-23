@@ -81,6 +81,7 @@ object Cats:
     println(increment(Box(6)))
 
     // Applicative
+    import cats.Apply.ops.toAllApplyOps
     println(10.pure[Box])
     println(Box((x: Int) => x + 11).ap(Box(10)))
 

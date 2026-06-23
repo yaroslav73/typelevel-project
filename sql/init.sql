@@ -25,13 +25,16 @@ ALTER TABLE jobs
 ADD CONSTRAINT pk_jobs PRIMARY KEY (id);
 
 CREATE TABLE users(
+  id UUID DEFAULT gen_random_uuid(),
   email TEXT NOT NULL,
   password TEXT NOT NULL,
-  firstName TEXT NOT NULL,
-  lastName TEXT,
+  first_name TEXT,
+  last_name TEXT,
   company TEXT,
   role TEXT NOT NULL
 );
 
 ALTER TABLE users
 ADD CONSTRAINT pk_users PRIMARY KEY (email);
+
+SET timezone TO 'Europe/Kyiv';

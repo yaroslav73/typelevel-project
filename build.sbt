@@ -1,12 +1,12 @@
 ThisBuild / version := "0.1.0"
 
 lazy val orgName       = "example.project"
-lazy val scala3Version = "3.3.1"
+lazy val scala3Version = "3.3.8"
 
 lazy val circeVersion               = "0.14.0"
 lazy val catsEffectVersion          = "3.3.14"
 lazy val http4sVersion              = "0.23.15"
-lazy val doobieVersion              = "1.0.0-RC1"
+lazy val doobieVersion              = "1.0.0-RC12"
 lazy val pureConfigVersion          = "0.17.1"
 lazy val log4catsVersion            = "2.4.0"
 lazy val tsecVersion                = "0.4.0"

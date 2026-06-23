@@ -24,7 +24,7 @@ INSERT INTO users (
 VALUES (
     '843df718-ec6e-4d49-9289-f799c0f40073',
     'john_test@email.com',
-    'hashedpassword',
+    '$2a$10$f7SiL6BEPbooqYkWxTvNtebX80UqAZmvFPXwJ5t452Q.kHkU.nidO',
     'John',
     'Wick',
     'Continental',

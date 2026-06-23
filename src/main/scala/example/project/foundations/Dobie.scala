@@ -20,12 +20,15 @@ import doobie.util.transactor.Transactor
 object Dobie extends IOApp.Simple:
   final case class Student(id: Int, name: String)
 
-  private val xa: Transactor[IO] = Transactor.fromDriverManager[IO](
-    driver = "org.postgresql.Driver",
-    url    = "jdbc:postgresql:demo",
-    user   = "docker",
-    pass   = "docker",
-  )
+  private val xa: Transactor[IO] = Transactor
+    .fromDriverManager[IO]
+    .apply(
+      driver     = "org.postgresql.Driver",
+      url        = "jdbc:postgresql:demo",
+      user       = "docker",
+      password   = "docker",
+      logHandler = None,
+    )
 
   def findAllStudentNames: IO[List[String]] =
     val query  = sql"SELECT name FROM students".query[String]

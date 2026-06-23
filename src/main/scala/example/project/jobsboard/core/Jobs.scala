@@ -83,7 +83,7 @@ object Jobs:
         val companies = filter.companies.toNel.map(c => Fragments.in(fr"company", c))
         val locations = filter.locations.toNel.map(l => Fragments.in(fr"location", l))
         val countries = filter.countries.toNel.map(c => Fragments.in(fr"country", c))
-        val tags      = filter.tags.toNel.map(tags => Fragments.or(tags.toList.map(tag => fr"$tag=ANY(tags)"): _*))
+        val tags      = filter.tags.toNel.flatMap(tags => Fragments.orOpt(tags.toList.map(tag => fr"$tag=ANY(tags)")))
         val seniority = filter.seniority.map(s => fr"seniority = $s")
         val salary    = filter.salary.map(s => fr"salary >= $s")
         val remote    = Option(fr"remote = ${filter.remote}")

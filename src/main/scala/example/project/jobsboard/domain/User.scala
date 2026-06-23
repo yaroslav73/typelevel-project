@@ -23,7 +23,7 @@ object User:
     firstName: Option[String],
     lastName: Option[String],
     company: Option[String],
-    role: Role,
+    role: Option[Role], // TODO: fix it
   ) {
     // TODO: maybe add this on type level? NewWithHashedPassword and store only this type?
     def withHashedPassword(hashedPassword: String): New = copy(password = hashedPassword)
@@ -37,7 +37,7 @@ object User:
       lastName: Option[String],
       company: Option[String]
     ): New =
-      New(email, password, firstName, lastName, company, Role.ADMIN)
+      New(email, password, firstName, lastName, company, Some(Role.ADMIN))
 
     def recruiter(
       email: String,
@@ -46,4 +46,4 @@ object User:
       lastName: Option[String],
       company: Option[String]
     ): New =
-      New(email, password, firstName, lastName, company, Role.RECRUITTER)
+      New(email, password, firstName, lastName, company, Some(Role.RECRUITTER))

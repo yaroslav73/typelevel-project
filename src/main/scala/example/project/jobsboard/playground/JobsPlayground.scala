@@ -38,15 +38,15 @@ object JobsPlayground extends IOApp.Simple:
     postrgresResource.use { xa =>
       for
         jobs <- LiveJobs[IO](xa)
-        _    <- IO.println("Ready. Next...") *> IO(StdIn.readLine)
+        _    <- IO.println("Ready. Next...") *> IO(StdIn.readLine())
         id   <- jobs.create("test@test.test", jobInfo)
-        _    <- IO.println("Next...") *> IO(StdIn.readLine)
+        _    <- IO.println("Next...") *> IO(StdIn.readLine())
         list <- jobs.all(JobFilter(), Pagination.Default)
-        _    <- IO.println(s"All jobs: $list. \nNext...") *> IO(StdIn.readLine)
+        _    <- IO.println(s"All jobs: $list. \nNext...") *> IO(StdIn.readLine())
         job  <- jobs.update(id, jobInfo.copy(title = "Software Engineer II"))
-        _    <- IO.println(s"Updated job: $job, \nNext...") *> IO(StdIn.readLine)
+        _    <- IO.println(s"Updated job: $job, \nNext...") *> IO(StdIn.readLine())
         _    <- jobs.delete(id)
         list <- jobs.all(JobFilter(), Pagination.Default)
-        _    <- IO.println(s"Job deleted: $list. \nPress enter to end.") *> IO(StdIn.readLine)
+        _    <- IO.println(s"Job deleted: $list. \nPress enter to end.") *> IO(StdIn.readLine())
       yield ()
     }

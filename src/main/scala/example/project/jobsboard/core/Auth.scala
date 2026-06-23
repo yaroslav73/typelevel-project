@@ -37,7 +37,7 @@ object Auth:
         token <- user.traverse(user => authenticator.create(user.email))
       } yield token
 
-    def signUp(user: New): F[Option[User]] =
+    def signUp(user: User.New): F[Option[User]] =
       for {
         userOpt <- users.find(user.email)
         user <- userOpt match

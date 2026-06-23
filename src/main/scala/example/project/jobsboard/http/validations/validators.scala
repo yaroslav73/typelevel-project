@@ -93,6 +93,7 @@ object Validator:
   }
 
   given newUserValidator: Validator[User.New] = (newUser: User.New) => {
+    println(s"Validating new user: $newUser")
     val User.New(email, password, firstName, lastName, company, role) = newUser
 
     val validEmail    = validateRequired(email, "email")(_.nonEmpty).andThen(e => validateEmail(e, "email"))
@@ -100,9 +101,10 @@ object Validator:
     // Password validation here
 
     (validEmail, validPassword).mapN { (email, password) =>
-      role match
-        case User.Role.ADMIN      => User.New.admin(email, password, firstName, lastName, company)
-        case User.Role.RECRUITTER => User.New.recruiter(email, password, firstName, lastName, company)
+      User.New.recruiter(email, password, firstName, lastName, company)
+      // role match
+      //   case User.Role.ADMIN      => User.New.admin(email, password, firstName, lastName, company)
+      //   case User.Role.RECRUITTER => User.New.recruiter(email, password, firstName, lastName, company)
     }
   }
 

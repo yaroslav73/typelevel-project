@@ -88,7 +88,7 @@ object CatsEffect extends IOApp.Simple:
         IO(Source.fromFile("src/main/scala/example/project/foundations/CatsEffect.scala"))
     )(source => IO.println("Closing source...") *> IO(source.close))
 
-  val readingEffect = readingResource.use(source => IO(source.getLines.foreach(println)))
+  val readingEffect = readingResource.use(source => IO(source.getLines().foreach(println)))
 
   // Compose resources
   val copiedFileResource = Resource.make(
@@ -104,7 +104,7 @@ object CatsEffect extends IOApp.Simple:
 
   val copyFileEffect = compositeResource.use {
     case (source, destination) =>
-      IO(source.getLines.foreach(destination.println))
+      IO(source.getLines().foreach(destination.println))
   }
 
   // Abstract kinds of computations
