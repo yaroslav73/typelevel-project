@@ -26,10 +26,22 @@ import example.project.jobsboard.http.validations.validate
 import example.project.jobsboard.domain.Job.JobFilter
 import example.project.jobsboard.utils.Pagination
 import example.project.jobsboard.logging.logError
+import tsec.authentication.asAuthed
 import org.http4s.dsl.impl.OptionalQueryParamDecoderMatcher
+import example.project.jobsboard.domain.Aliases.AuthRoute
+import example.project.jobsboard.core.Auth
+import tsec.authentication.SecuredRequestHandler
+import example.project.jobsboard.domain.User
+import example.project.jobsboard.domain.Aliases.JwtToken
+import example.project.jobsboard.domain.Aliases.restrictedTo
+import example.project.jobsboard.domain.Aliases.allRoles
+import example.project.jobsboard.domain.Aliases.SecuredHandler
+import example.project.jobsboard.domain.Aliases.Authenticator
 
 // TODO: Why we use Concurrent here?
-class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F]) extends Http4sDsl[F]:
+class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F], authenticator: Authenticator[F]) extends Http4sDsl[F]:
+  private val securedRequestHandler: SecuredHandler[F] = SecuredRequestHandler(authenticator)
+
   object LimitQueryParam extends OptionalQueryParamDecoderMatcher[Int]("limit")
   object OffsetQueryParam extends OptionalQueryParamDecoderMatcher[Int]("offset")
 
@@ -53,9 +65,9 @@ class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F]) extends Http4s
   }
 
   // POST /jobs/new { job info }
-  private val createJobRoute: HttpRoutes[F] = HttpRoutes.of[F] {
-    case req @ POST -> Root / "new" =>
-      req.validate[JobInfo] { jobInfo =>
+  private val createJobRoute: AuthRoute[F] = {
+    case req @ POST -> Root / "new" asAuthed _ =>
+      req.request.validate[JobInfo] { jobInfo =>
         for
           id       <- jobs.create("test@test.test", jobInfo) // TODO: Remove hardcoded email
           response <- Created(id)
@@ -89,9 +101,16 @@ class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F]) extends Http4s
       }
   }
 
+  val securedRoutes: HttpRoutes[F] = securedRequestHandler.liftService(
+    createJobRoute.restrictedTo(allRoles)
+  )
+
+  val nonSecuredRoutes: HttpRoutes[F] = allJobsRoute <+> findJobRoute <+> updateJobRoute <+> deleteJobRoute
+
   val routes: HttpRoutes[F] = Router(
-    "/jobs" -> (allJobsRoute <+> findJobRoute <+> createJobRoute <+> updateJobRoute <+> deleteJobRoute)
+    "/jobs" -> (nonSecuredRoutes <+> securedRoutes)
   )
 
 object JobRoutes:
-  def apply[F[_]: Concurrent: Logger](jobs: Jobs[F]): JobRoutes[F] = new JobRoutes[F](jobs)
+  def apply[F[_]: Concurrent: Logger](jobs: Jobs[F], authenticator: Authenticator[F]): JobRoutes[F] =
+    new JobRoutes[F](jobs, authenticator)

@@ -31,6 +31,7 @@ import concurrent.duration.DurationInt
 import tsec.jws.mac.JWTMac
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
+import example.project.jobsboard.stubs.AuthenticatorStub
 
 class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Http4sDsl[IO] with UserFixture:
   "AuthRoutes" - {
@@ -220,26 +221,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with H
       authenticatorStub
   }
 
-  private val authenticatorStub: Authenticator[IO] = {
-    // 1. Key for hashing
-    val key = HMACSHA256.unsafeGenerateKey
-
-    // 2. Indentity store to retrieve users
-    val idStore: IdentityStore[IO, String, User] = (email: String) =>
-      email match {
-        case john.email => OptionT.pure(john)
-        case anna.email => OptionT.pure(anna)
-        case _          => OptionT.none[IO, User]
-      }
-
-    // 3. jwt authenticator
-    JWTAuthenticator.unbacked.inBearerToken(
-      1.day,
-      None,
-      idStore,
-      key,
-    )
-  }
+  private val authenticatorStub: Authenticator[IO] = AuthenticatorStub[IO]()
 
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 

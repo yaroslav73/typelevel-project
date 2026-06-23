@@ -13,7 +13,7 @@ import example.project.jobsboard.http.routes.AuthRoutes
 
 class HttpApi[F[_]: Concurrent: Logger] private (core: Core[F]):
   private val healthRoutes: HttpRoutes[F] = HealthRoutes[F].routes
-  private val jobRoutes: HttpRoutes[F]    = JobRoutes[F](core.jobs).routes
+  private val jobRoutes: HttpRoutes[F]    = JobRoutes[F](core.jobs, core.auth.authenticator).routes
   private val authRoutes: HttpRoutes[F]   = AuthRoutes.make[F](core.auth).routes
 
   val routes: HttpRoutes[F] = Router("/api" -> (healthRoutes <+> jobRoutes <+> authRoutes))

@@ -7,7 +7,7 @@ import cats.effect.testing.scalatest.AsyncIOSpec
 import example.project.jobsboard.core.Jobs
 import example.project.jobsboard.domain.Job
 import example.project.jobsboard.domain.Job.JobInfo
-import example.project.jobsboard.fixtures.JobFixture
+import example.project.jobsboard.fixtures.{ JobFixture, UserFixture }
 import example.project.jobsboard.http.responses.FailureResponse
 import io.circe.Json
 import io.circe.generic.auto.*
@@ -25,8 +25,19 @@ import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import example.project.jobsboard.utils.Pagination
 import example.project.jobsboard.domain.Job.JobFilter
+import example.project.jobsboard.stubs.AuthenticatorStub
+import example.project.jobsboard.domain.Aliases.JwtToken
+import tsec.jws.mac.JWTMac
+import tsec.mac.jca.HMACSHA256
+import org.http4s.headers.Authorization
 
-class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Http4sDsl[IO] with JobFixture:
+class JobRoutesSpec
+    extends AsyncFreeSpec
+    with AsyncIOSpec
+    with Matchers
+    with Http4sDsl[IO]
+    with JobFixture
+    with UserFixture:
 
   "JobRoutes" - {
     "should return a job with given id" in {
@@ -66,7 +77,8 @@ class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Ht
       val request = Request[IO](Method.POST, uri"/jobs/new").withEntity(NewTestJobInfo)
 
       for
-        response <- jobRoutes.run(request)
+        jwtToken <- authenticator.create(john.email)
+        response <- jobRoutes.run(request.withBearerToken(jwtToken))
         payload  <- response.as[UUID]
       yield
         response.status shouldBe Status.Created
@@ -139,5 +151,14 @@ class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Ht
       if id == TestJobId then IO.pure(1) else IO.pure(0)
   }
 
+  private val authenticator = AuthenticatorStub[IO]()
+
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
-  private val jobRoutes = JobRoutes[IO](jobs).routes.orNotFound
+  private val jobRoutes = JobRoutes[IO](jobs, authenticator).routes.orNotFound
+
+  extension (request: Request[IO])
+    def withBearerToken(token: JwtToken): Request[IO] =
+      request.putHeaders {
+        val jwtString = JWTMac.toEncodedString[IO, HMACSHA256](token.jwt)
+        Authorization(Credentials.Token(AuthScheme.Bearer, jwtString))
+      }
