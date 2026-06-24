@@ -111,7 +111,8 @@ class JobRoutesSpec
       val request = Request[IO](Method.DELETE, uri"/jobs" / TestJobId)
 
       for
-        response <- jobRoutes.run(request)
+        jwtToken <- authenticator.create(john.email)
+        response <- jobRoutes.run(request.withBearerToken(jwtToken))
         payload  <- response.as[String]
       yield
         response.status shouldBe Status.Ok
@@ -122,11 +123,24 @@ class JobRoutesSpec
       val request = Request[IO](Method.DELETE, uri"/jobs" / NotFoundJobId)
 
       for
-        response <- jobRoutes.run(request)
+        jwtToken <- authenticator.create(john.email)
+        response <- jobRoutes.run(request.withBearerToken(jwtToken))
         payload  <- response.as[FailureResponse]
       yield
         response.status shouldBe Status.NotFound
         payload         shouldBe FailureResponse(s"Job with id $NotFoundJobId not found")
+    }
+
+    "should not delete a job if user is not authorized" in {
+      val request = Request[IO](Method.DELETE, uri"/jobs" / TestJobId)
+
+      for
+        jwtToken <- authenticator.create(anna.email)
+        response <- jobRoutes.run(request.withBearerToken(jwtToken))
+        payload  <- response.as[FailureResponse]
+      yield
+        response.status shouldBe Status.Forbidden
+        payload shouldBe FailureResponse(s"User ${anna.email} is not authorized to delete job with id $TestJobId")
     }
   }
 

@@ -11,7 +11,11 @@ final case class User(
   lastName: Option[String],
   company: Option[String],
   role: Role,
-)
+) {
+  def owns(job: Job): Boolean = job.ownerEamil.equals(email)
+  def isAdmin: Boolean = role == Role.ADMIN
+  def isRecruiter: Boolean = role == Role.RECRUITTER
+}
 
 object User:
   enum Role:

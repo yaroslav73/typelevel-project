@@ -7,6 +7,7 @@ import cats.effect.Concurrent
 import cats.syntax.applicative.catsSyntaxApplicativeId
 import cats.syntax.flatMap.toFlatMapOps
 import cats.syntax.functor.toFunctorOps
+import cats.syntax.semigroup.catsSyntaxSemigroup
 import cats.syntax.semigroupk.toSemigroupKOps
 import cats.{ Applicative, Monad, MonadThrow }
 
@@ -37,6 +38,7 @@ import example.project.jobsboard.domain.Aliases.restrictedTo
 import example.project.jobsboard.domain.Aliases.allRoles
 import example.project.jobsboard.domain.Aliases.SecuredHandler
 import example.project.jobsboard.domain.Aliases.Authenticator
+import example.project.jobsboard.domain.User.Role
 
 // TODO: Why we use Concurrent here?
 class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F], authenticator: Authenticator[F]) extends Http4sDsl[F]:
@@ -89,23 +91,25 @@ class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F], authenticator:
   }
 
   // DELETE /jobs/uuid
-  private val deleteJobRoute: HttpRoutes[F] = HttpRoutes.of[F] {
-    case DELETE -> Root / UUIDVar(id) =>
+  private val deleteJobRoute: AuthRoute[F] = {
+    case DELETE -> Root / UUIDVar(id) asAuthed user =>
       jobs.find(id).flatMap {
-        case Some(_) =>
+        case Some(job) if user.owns(job) || user.isAdmin =>
           for
             _        <- jobs.delete(id)
             response <- Ok(s"Job with id $id deleted")
           yield response
-        case None => NotFound(FailureResponse(s"Job with id $id not found"))
+        case Some(job) => Forbidden(FailureResponse(s"User ${user.email} is not authorized to delete job with id $id"))
+        case None      => NotFound(FailureResponse(s"Job with id $id not found"))
       }
   }
 
   val securedRoutes: HttpRoutes[F] = securedRequestHandler.liftService(
-    createJobRoute.restrictedTo(allRoles)
+    createJobRoute.restrictedTo(allRoles) |+|
+      deleteJobRoute.restrictedTo(allRoles)
   )
 
-  val nonSecuredRoutes: HttpRoutes[F] = allJobsRoute <+> findJobRoute <+> updateJobRoute <+> deleteJobRoute
+  val nonSecuredRoutes: HttpRoutes[F] = allJobsRoute <+> findJobRoute <+> updateJobRoute
 
   val routes: HttpRoutes[F] = Router(
     "/jobs" -> (nonSecuredRoutes <+> securedRoutes)
