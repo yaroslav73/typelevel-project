@@ -20,7 +20,7 @@ trait Users[F[_]]:
   def delete(id: UUID): F[Boolean]
 
 object Users:
-  def make[F[_]: MonadCancelThrow](xa: Transactor[F]): Users[F] = new Users[F] {
+  def of[F[_]: MonadCancelThrow](xa: Transactor[F]): Users[F] = new Users[F] {
     def find(email: String): F[Option[User]] =
       sql"SELECT * FROM users WHERE email = $email"
         .query[User]

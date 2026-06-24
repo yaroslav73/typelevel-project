@@ -19,28 +19,24 @@ import example.project.jobsboard.domain.Auth.NewPasswordInfo
 class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFixture {
   "Auth 'algebra'" - {
     "login should return None if the user does not exists" in {
-      val auth  = Auth.make[IO](testUsers, authenticator)
       val token = auth.login(NotFoundUserEmail, john.hashedPassword)
 
       token.asserting(_ shouldBe None)
     }
 
     "login should return None if the user password is wrong" in {
-      val auth  = Auth.make[IO](testUsers, authenticator)
       val token = auth.login(john.email, "wrongpassword")
 
       token.asserting(_ shouldBe None)
     }
 
     "login should return token if the user exists and password is correct" in {
-      val auth  = Auth.make[IO](testUsers, authenticator)
       val token = auth.login(john.email, "password1")
 
       token.asserting(_ shouldBe defined)
     }
 
     "signup should not create user if the email already exists" in {
-      val auth = Auth.make[IO](testUsers, authenticator)
       val userId = auth.signUp(
         User.New.recruiter(
           email     = john.email,
@@ -55,7 +51,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
     }
 
     "signup should create user" in {
-      val auth = Auth.make[IO](testUsers, authenticator)
+      val auth = Auth.of[IO](testUsers)
       val userId = auth.signUp(
         User.New.recruiter(
           email     = NotFoundUserEmail,
@@ -70,21 +66,18 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
     }
 
     "changePassword should return error if user does not exists" in {
-      val auth   = Auth.make[IO](testUsers, authenticator)
       val result = auth.changePassword(NotFoundUserEmail, NewPasswordInfo("oldpassword", "newpassword"))
 
       result.asserting(_ shouldBe Left("User with this email not found"))
     }
 
     "changePassword should return error if user old password does not match" in {
-      val auth   = Auth.make[IO](testUsers, authenticator)
       val result = auth.changePassword(john.email, NewPasswordInfo("oldpassword", "newpassword"))
 
       result.asserting(_ shouldBe Left("Invalid password"))
     }
 
     "changePassword should change password if user exists" in {
-      val auth   = Auth.make[IO](testUsers, authenticator)
       val result = auth.changePassword(john.email, NewPasswordInfo("password1", "newpassword"))
 
       result.asserting(_ shouldBe Right(Some(john)))
@@ -122,4 +115,6 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
       key,
     )
   }
+
+  private val auth = Auth.of[IO](testUsers)
 }

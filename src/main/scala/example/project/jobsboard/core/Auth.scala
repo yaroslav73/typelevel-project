@@ -22,20 +22,19 @@ import cats.effect.kernel.Ref
 import example.project.jobsboard.config.SecurityConfig
 
 trait Auth[F[_]]:
-  def login(email: String, password: String): F[Option[JwtToken]]
+  def login(email: String, password: String): F[Option[User]]
   def signUp(user: User.New): F[Option[User]]
   def delete(email: String): F[Boolean]
   def changePassword(email: String, newPassword: NewPasswordInfo): F[Either[String, Option[User]]]
-  def authenticator: Authenticator[F]
 
 object Auth:
-  def make[F[_]: Sync](users: Users[F], auth: Authenticator[F]): Auth[F] = new Auth[F] {
-    def login(email: String, password: String): F[Option[JwtToken]] =
+  def of[F[_]: Sync](users: Users[F]): Auth[F] = new Auth[F] {
+    def login(email: String, password: String): F[Option[User]] =
       for {
-        user  <- users.find(email)
-        user  <- user.filterA(user => checkPassword(password, user.hashedPassword))
-        token <- user.traverse(user => authenticator.create(user.email))
-      } yield token
+        user <- users.find(email)
+        user <- user.filterA(user => checkPassword(password, user.hashedPassword))
+        // token <- user.traverse(user => authenticator.create(user.email))
+      } yield user
 
     def signUp(user: User.New): F[Option[User]] =
       for {
@@ -70,8 +69,6 @@ object Auth:
           case None => "User with this email not found".asLeft.pure[F]
       } yield user
 
-    def authenticator: Authenticator[F] = auth
-
     private def updatePassword(user: User, newPassword: String): F[Option[User]] =
       for {
         hashedPassword <- BCrypt.hashpw[F](newPassword)
@@ -80,35 +77,4 @@ object Auth:
 
     private def checkPassword(password: String, hashedPassword: String): F[Boolean] =
       BCrypt.checkpwBool[F](password, PasswordHash[BCrypt](hashedPassword))
-  }
-
-  def of[F[_]: Sync](users: Users[F])(securityConfig: SecurityConfig): F[Auth[F]] = {
-    // 1. Indentity store
-    val idStore: IdentityStore[F, String, User] = (email: String) => OptionT(users.find(email))
-
-    // 2. Backing store for JWT tokens
-    val tokenStoreF = Ref.of[F, Map[SecureRandomId, JwtToken]](Map.empty).map { ref =>
-      new BackingStore[F, SecureRandomId, JwtToken] {
-        def put(token: JwtToken): F[JwtToken] = ref.modify(store => store + (token.id -> token) -> token)
-        def get(id: SecureRandomId): OptionT[F, JwtToken] = OptionT(ref.get.map(_.get(id)))
-        def update(token: JwtToken): F[JwtToken] = put(token)
-        def delete(id: SecureRandomId): F[Unit] = ref.modify(store => (store - id, ()))
-      }
-    }
-
-    // 3. Hashing key
-    val keyF = HMACSHA256.buildKey[F](securityConfig.secret.getBytes("UTF-8"))
-
-    // 4. Authenticator and 5. Auth
-    for {
-      key        <- keyF
-      tokenStore <- tokenStoreF
-      authenticator = JWTAuthenticator.backed.inBearerToken(
-        expiryDuration = securityConfig.jwtExpiryDuration,
-        maxIdle        = None,
-        tokenStore     = tokenStore,
-        identityStore  = idStore,
-        signingKey     = key
-      )
-    } yield make(users, authenticator)
   }

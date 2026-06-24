@@ -23,7 +23,7 @@ object Application extends IOApp.Simple:
           for
             xa      <- Postgres.make[IO](postgresConfig)
             core    <- Core[IO](xa)(securityConfig)
-            httpApi <- HttpApi[IO](core)
+            httpApi <- HttpApi[IO](core, securityConfig)
             server <- EmberServerBuilder
               .default[IO]
               .withHost(emberConfig.host)

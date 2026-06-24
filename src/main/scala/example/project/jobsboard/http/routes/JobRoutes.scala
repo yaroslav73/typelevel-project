@@ -41,8 +41,7 @@ import example.project.jobsboard.domain.Aliases.Authenticator
 import example.project.jobsboard.domain.User.Role
 
 // TODO: Why we use Concurrent here?
-class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F], authenticator: Authenticator[F]) extends Http4sDsl[F]:
-  private val securedRequestHandler: SecuredHandler[F] = SecuredRequestHandler(authenticator)
+class JobRoutes[F[_]: Concurrent: Logger: SecuredHandler] private (jobs: Jobs[F]) extends Http4sDsl[F]:
 
   object LimitQueryParam extends OptionalQueryParamDecoderMatcher[Int]("limit")
   object OffsetQueryParam extends OptionalQueryParamDecoderMatcher[Int]("offset")
@@ -103,7 +102,7 @@ class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F], authenticator:
       }
   }
 
-  val securedRoutes: HttpRoutes[F] = securedRequestHandler.liftService(
+  val securedRoutes: HttpRoutes[F] = SecuredHandler[F].liftService(
     createJobRoute.restrictedTo(allRoles) |+|
       deleteJobRoute.restrictedTo(allRoles) |+|
       updateJobRoute.restrictedTo(allRoles)
@@ -116,5 +115,5 @@ class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F], authenticator:
   )
 
 object JobRoutes:
-  def apply[F[_]: Concurrent: Logger](jobs: Jobs[F], authenticator: Authenticator[F]): JobRoutes[F] =
-    new JobRoutes[F](jobs, authenticator)
+  def apply[F[_]: Concurrent: Logger: SecuredHandler](jobs: Jobs[F]): JobRoutes[F] =
+    new JobRoutes[F](jobs)

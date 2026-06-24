@@ -11,14 +11,14 @@ import example.project.jobsboard.core.Auth
 import example.project.jobsboard.core.Users
 import example.project.jobsboard.config.SecurityConfig
 
-final class Core[F[_]] private (val jobs: Jobs[F], val auth: Auth[F])
+final class Core[F[_]] private (val jobs: Jobs[F], val auth: Auth[F], val users: Users[F])
 
 object Core:
   def apply[F[_]: Async: Logger](xa: Transactor[F])(securityConfig: SecurityConfig): Resource[F, Core[F]] =
     val core = for {
       jobs <- LiveJobs(xa)
-      users = Users.make[F](xa)
-      auth <- Auth.of(users)(securityConfig)
-    } yield new Core(jobs, auth)
+      users = Users.of[F](xa)
+      auth  = Auth.of(users)
+    } yield new Core(jobs, auth, users)
 
     Resource.eval(core)

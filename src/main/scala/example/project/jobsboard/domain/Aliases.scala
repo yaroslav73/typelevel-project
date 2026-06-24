@@ -22,12 +22,16 @@ import cats.kernel.Semigroup
 import tsec.authentication.SecuredRequestHandler
 
 object Aliases {
-  type Crypto               = HMACSHA256
-  type JwtToken             = AugmentedJWT[Crypto, String]
-  type Authenticator[F[_]]  = JWTAuthenticator[F, String, User, Crypto]
-  type AuthRoute[F[_]]      = PartialFunction[SecuredRequest[F, User, JwtToken], F[Response[F]]]
+  type Crypto              = HMACSHA256
+  type JwtToken            = AugmentedJWT[Crypto, String]
+  type Authenticator[F[_]] = JWTAuthenticator[F, String, User, Crypto]
+  type AuthRoute[F[_]]     = PartialFunction[SecuredRequest[F, User, JwtToken], F[Response[F]]]
+  type AuthRBAC[F[_]]      = BasicRBAC[F, Role, User, JwtToken]
+
   type SecuredHandler[F[_]] = SecuredRequestHandler[F, String, User, JwtToken]
-  type AuthRBAC[F[_]]       = BasicRBAC[F, Role, User, JwtToken]
+  object SecuredHandler {
+    def apply[F[_]](using handler: SecuredHandler[F]): SecuredHandler[F] = handler
+  }
 
   // RBAC
   // BasicRBAC[F, Role, User, JwtToken]

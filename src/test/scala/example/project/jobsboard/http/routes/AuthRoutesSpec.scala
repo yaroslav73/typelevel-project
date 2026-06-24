@@ -20,7 +20,7 @@ import example.project.jobsboard.domain.Aliases.JwtToken
 import example.project.jobsboard.domain.User
 import example.project.jobsboard.domain.Auth.NewPasswordInfo
 import example.project.jobsboard.domain.Auth.LoginInfo
-import example.project.jobsboard.fixtures.UserFixture
+import example.project.jobsboard.fixtures.{ SecuredFixture, UserFixture }
 import example.project.jobsboard.http.responses.FailureResponse
 import example.project.jobsboard.domain.Aliases.Authenticator
 import tsec.mac.jca.HMACSHA256
@@ -32,8 +32,17 @@ import tsec.jws.mac.JWTMac
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import example.project.jobsboard.stubs.AuthenticatorStub
+import example.project.jobsboard.domain.Aliases.SecuredHandler
+import tsec.authentication.SecuredRequestHandler
 
-class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Http4sDsl[IO] with UserFixture:
+class AuthRoutesSpec
+    extends AsyncFreeSpec
+    with AsyncIOSpec
+    with Matchers
+    with Http4sDsl[IO]
+    with UserFixture
+    with SecuredFixture:
+
   "AuthRoutes" - {
     "login should return unauthorized if user not found" in {
       val request = Request[IO](Method.POST, uri"/auth/login").withEntity(LoginInfo(NotFoundUserEmail, "password1"))
@@ -101,7 +110,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with H
         .withEntity(NewPasswordInfo("password1", "password2"))
 
       for {
-        jwtToken <- authenticatorStub.create(anna.email)
+        jwtToken <- authenticator.create(anna.email)
         response <- authRoutes.run(request.withBearerToken(jwtToken))
         payload  <- response.as[FailureResponse]
       } yield {
@@ -115,7 +124,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with H
         .withEntity(NewPasswordInfo("wrongpassword", "password2"))
 
       for {
-        jwtToken <- authenticatorStub.create(john.email)
+        jwtToken <- authenticator.create(john.email)
         response <- authRoutes.run(request.withBearerToken(jwtToken))
         payload  <- response.as[FailureResponse]
       } yield {
@@ -129,7 +138,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with H
         .withEntity(NewPasswordInfo("password1", "password2"))
 
       for {
-        jwtToken <- authenticatorStub.create(NotFoundUserEmail)
+        jwtToken <- authenticator.create(NotFoundUserEmail)
         response <- authRoutes.run(request.withBearerToken(jwtToken))
       } yield {
         response.status shouldBe Status.Unauthorized
@@ -141,7 +150,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with H
         .withEntity(NewPasswordInfo("password1", "password2"))
 
       for {
-        jwtToken <- authenticatorStub.create(john.email)
+        jwtToken <- authenticator.create(john.email)
         response <- authRoutes.run(request.withBearerToken(jwtToken))
         user     <- response.as[User]
       } yield {
@@ -164,7 +173,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with H
       val request = Request[IO](Method.POST, uri"/auth/logout")
 
       for {
-        jwtToken <- authenticatorStub.create(john.email)
+        jwtToken <- authenticator.create(john.email)
         response <- authRoutes.run(request.withBearerToken(jwtToken))
       } yield {
         response.status shouldBe Status.Ok
@@ -175,7 +184,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with H
       val request = Request[IO](Method.DELETE, uri"/auth/users/john_test@email.com")
 
       for {
-        jwtToken <- authenticatorStub.create(anna.email)
+        jwtToken <- authenticator.create(anna.email)
         response <- authRoutes.run(request.withBearerToken(jwtToken))
       } yield {
         response.status shouldBe Status.Unauthorized
@@ -186,7 +195,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with H
       val request = Request[IO](Method.DELETE, uri"/auth/users/anna_test@email.com")
 
       for {
-        jwtToken <- authenticatorStub.create(john.email)
+        jwtToken <- authenticator.create(john.email)
         response <- authRoutes.run(request.withBearerToken(jwtToken))
       } yield {
         response.status shouldBe Status.Ok
@@ -197,7 +206,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with H
       val request = Request[IO](Method.DELETE, uri"/auth/users/non_exists@email.com")
 
       for {
-        jwtToken <- authenticatorStub.create(john.email)
+        jwtToken <- authenticator.create(john.email)
         response <- authRoutes.run(request.withBearerToken(jwtToken))
       } yield {
         response.status shouldBe Status.NotFound
@@ -206,9 +215,8 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with H
   }
 
   private val auth = new Auth[IO] {
-    def login(email: String, password: String): IO[Option[JwtToken]] =
-      if (email == john.email && password == "password1") authenticator.create(john.email).map(Some(_))
-      else IO.pure(None)
+    def login(email: String, password: String): IO[Option[User]] =
+      if (email == john.email && password == "password1") IO.pure(Some(john)) else IO.pure(None)
     def signUp(user: User.New): IO[Option[User]] =
       if (user.email == anna.email) IO.pure(Some(anna)) else IO.pure(None)
     def delete(email: String): IO[Boolean] =
@@ -217,15 +225,12 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with H
       if (email == john.email)
         if (passwordInfo.oldPassword == "password1") IO.pure(Right(Some(john))) else IO.pure(Left("Invalid password"))
       else IO.pure(Right(None))
-    def authenticator: Authenticator[IO] =
-      authenticatorStub
   }
 
-  private val authenticatorStub: Authenticator[IO] = AuthenticatorStub[IO]()
+  // private val authenticator: Authenticator[IO] = AuthenticatorStub[IO]()
+  private given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-  given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
-
-  private val authRoutes = AuthRoutes.make[IO](auth).routes.orNotFound
+  private val authRoutes = AuthRoutes.of[IO](auth, authenticator).routes.orNotFound
 
   extension (request: Request[IO])
     def withBearerToken(token: JwtToken): Request[IO] =

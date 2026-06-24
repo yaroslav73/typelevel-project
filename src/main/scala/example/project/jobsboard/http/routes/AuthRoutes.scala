@@ -1,11 +1,7 @@
 package example.project.jobsboard.http.routes
 
 import cats.effect.Concurrent
-import cats.syntax.all.toFlatMapOps
-import cats.syntax.all.toFunctorOps
-import cats.syntax.all.toSemigroupKOps
-import cats.syntax.all.catsSyntaxApplicativeId
-import cats.syntax.all.catsSyntaxSemigroup
+import cats.syntax.all.*
 import io.circe.generic.auto.*
 import org.http4s.FormDataDecoder.formEntityDecoder
 import org.http4s.HttpRoutes
@@ -32,19 +28,19 @@ import example.project.jobsboard.http.validations.validate
 import example.project.jobsboard.domain.Aliases.restrictedTo
 import example.project.jobsboard.domain.Aliases.adminOnly
 import example.project.jobsboard.domain.Aliases.allRoles
+import example.project.jobsboard.domain.Aliases.Authenticator
+import example.project.jobsboard.domain.Aliases.SecuredHandler
 
-class AuthRoutes[F[_]: Concurrent: Logger] private (auth: Auth[F]) extends Http4sDsl[F]:
-  private val authenticator = auth.authenticator
-
-  private val securedRequestHandler: SecuredRequestHandler[F, String, User, JwtToken] =
-    SecuredRequestHandler(authenticator)
+class AuthRoutes[F[_]: Concurrent: Logger: SecuredHandler] private (auth: Auth[F], authenticator: Authenticator[F])
+    extends Http4sDsl[F]:
 
   // POST /auth/login json { login info } => 200 Ok with JWT as Authorization: Bearer header
   private val loginRoute: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ POST -> Root / "login" =>
       req.validate[LoginInfo] { loginInfo =>
         for {
-          token <- auth.login(loginInfo.email, loginInfo.password)
+          user  <- auth.login(loginInfo.email, loginInfo.password)
+          token <- user.traverse(user => authenticator.create(user.email))
           _     <- Logger[F].info(s"User ${loginInfo.email} logged in")
           response = token.fold(
             Response[F](
@@ -101,7 +97,7 @@ class AuthRoutes[F[_]: Concurrent: Logger] private (auth: Auth[F]) extends Http4
       }
   }
 
-  val securedRoutes: HttpRoutes[F] = securedRequestHandler.liftService(
+  val securedRoutes: HttpRoutes[F] = SecuredHandler[F].liftService(
     changePasswordRoute.restrictedTo(allRoles) |+|
       logoutRoute.restrictedTo(allRoles) |+|
       deleteUserRoute.restrictedTo(adminOnly)
@@ -112,4 +108,5 @@ class AuthRoutes[F[_]: Concurrent: Logger] private (auth: Auth[F]) extends Http4
   val routes: HttpRoutes[F] = Router[F]("/auth" -> (nonSecuredRoutes <+> securedRoutes))
 
 object AuthRoutes:
-  def make[F[_]: Concurrent: Logger](auth: Auth[F]): AuthRoutes[F] = new AuthRoutes[F](auth)
+  def of[F[_]: Concurrent: Logger: SecuredHandler](auth: Auth[F], authenticator: Authenticator[F]): AuthRoutes[F] =
+    new AuthRoutes[F](auth, authenticator)

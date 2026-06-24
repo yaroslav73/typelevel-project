@@ -17,7 +17,7 @@ class UsersSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Databa
   "Users 'algebra'" - {
     "should not return a user if the given UUID does not exist" in {
       transactor.use { xa =>
-        val users  = Users.make[IO](xa)
+        val users  = Users.of[IO](xa)
         val result = users.find(NotFoundUserId)
 
         result.asserting(_ shouldBe None)
@@ -26,7 +26,7 @@ class UsersSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Databa
 
     "should not return a user if the given emaiil does not exist" in {
       transactor.use { xa =>
-        val users  = Users.make[IO](xa)
+        val users  = Users.of[IO](xa)
         val result = users.find(NotFoundUserEmail)
 
         result.asserting(_ shouldBe None)
@@ -35,7 +35,7 @@ class UsersSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Databa
 
     "should return a user by given UUID" in {
       transactor.use { xa =>
-        val users  = Users.make[IO](xa)
+        val users  = Users.of[IO](xa)
         val result = users.find(john.id)
 
         result.asserting(_ shouldBe Some(john))
@@ -44,7 +44,7 @@ class UsersSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Databa
 
     "should return a user by given email" in {
       transactor.use { xa =>
-        val users  = Users.make[IO](xa)
+        val users  = Users.of[IO](xa)
         val result = users.find(john.email)
 
         result.asserting(_ shouldBe Some(john))
@@ -55,7 +55,7 @@ class UsersSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Databa
       transactor.use { xa =>
         val newAdmin = User.New.admin("test_admin@email.com", "hashedpassword", None, None, None)
 
-        val users = Users.make[IO](xa)
+        val users = Users.of[IO](xa)
 
         val result = for {
           uuid    <- users.create(newAdmin)
@@ -71,7 +71,7 @@ class UsersSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Databa
 
     "should update user by given UUID" in {
       transactor.use { xa =>
-        val users       = Users.make[IO](xa)
+        val users       = Users.of[IO](xa)
         val updatedAnna = anna.copy(firstName = Some("Anna II"), lastName = Some("Maria"))
         val result      = users.update(updatedAnna)
 
@@ -81,7 +81,7 @@ class UsersSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Databa
 
     "should not update user by given not existen UUID" in {
       transactor.use { xa =>
-        val users  = Users.make[IO](xa)
+        val users  = Users.of[IO](xa)
         val result = users.update(anna.copy(id = NotFoundUserId))
 
         result.asserting(_ shouldBe None)
@@ -90,7 +90,7 @@ class UsersSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Databa
 
     "should delete job by given UUID" in {
       transactor.use { xa =>
-        val users = Users.make[IO](xa)
+        val users = Users.of[IO](xa)
         val result = for {
           delete  <- users.delete(anna.id)
           userOpt <- users.find(anna.id)

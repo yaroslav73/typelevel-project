@@ -7,7 +7,7 @@ import cats.effect.testing.scalatest.AsyncIOSpec
 import example.project.jobsboard.core.Jobs
 import example.project.jobsboard.domain.Job
 import example.project.jobsboard.domain.Job.JobInfo
-import example.project.jobsboard.fixtures.{ JobFixture, UserFixture }
+import example.project.jobsboard.fixtures.{ JobFixture, SecuredFixture, UserFixture }
 import example.project.jobsboard.http.responses.FailureResponse
 import io.circe.Json
 import io.circe.generic.auto.*
@@ -37,7 +37,8 @@ class JobRoutesSpec
     with Matchers
     with Http4sDsl[IO]
     with JobFixture
-    with UserFixture:
+    with UserFixture
+    with SecuredFixture:
 
   "JobRoutes" - {
     "should return a job with given id" in {
@@ -179,10 +180,9 @@ class JobRoutesSpec
       if id == TestJobId then IO.pure(1) else IO.pure(0)
   }
 
-  private val authenticator = AuthenticatorStub[IO]()
+  private given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-  given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
-  private val jobRoutes = JobRoutes[IO](jobs, authenticator).routes.orNotFound
+  private val jobRoutes = JobRoutes[IO](jobs).routes.orNotFound
 
   extension (request: Request[IO])
     def withBearerToken(token: JwtToken): Request[IO] =
