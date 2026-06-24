@@ -89,7 +89,8 @@ class JobRoutesSpec
       val request = Request[IO](Method.PUT, uri"/jobs" / TestJobId).withEntity(UpdateTestJobInfo)
 
       for
-        response <- jobRoutes.run(request)
+        jwtToken <- authenticator.create(john.email)
+        response <- jobRoutes.run(request.withBearerToken(jwtToken))
         payload  <- response.as[Option[Job]]
       yield
         response.status shouldBe Status.Ok
@@ -100,11 +101,24 @@ class JobRoutesSpec
       val request = Request[IO](Method.PUT, uri"/jobs" / NotFoundJobId).withEntity(UpdateTestJobInfo)
 
       for
-        response <- jobRoutes.run(request)
+        jwtToken <- authenticator.create(john.email)
+        response <- jobRoutes.run(request.withBearerToken(jwtToken))
         payload  <- response.as[FailureResponse]
       yield
         response.status shouldBe Status.NotFound
         payload         shouldBe FailureResponse(s"Job with id $NotFoundJobId not found")
+    }
+
+    "should not update a job if user is not authorized" in {
+      val request = Request[IO](Method.PUT, uri"/jobs" / TestJobId).withEntity(UpdateTestJobInfo)
+
+      for
+        jwtToken <- authenticator.create(anna.email)
+        response <- jobRoutes.run(request.withBearerToken(jwtToken))
+        payload  <- response.as[FailureResponse]
+      yield
+        response.status shouldBe Status.Forbidden
+        payload shouldBe FailureResponse(s"User ${anna.email} is not authorized to update job with id $TestJobId")
     }
 
     "should delete a job" in {

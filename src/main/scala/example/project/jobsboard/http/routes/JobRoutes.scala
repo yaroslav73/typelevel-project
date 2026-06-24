@@ -78,15 +78,14 @@ class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F], authenticator:
   }
 
   // PUT /jobs/uuid { job info }
-  private val updateJobRoute: HttpRoutes[F] = HttpRoutes.of[F] {
-    case req @ PUT -> Root / UUIDVar(id) =>
-      req.validate[JobInfo] { jobInfo =>
-        for
-          updated <- jobs.update(id, jobInfo)
-          response <- updated match
-            case Some(updated) => Ok(updated)
-            case None          => NotFound(FailureResponse(s"Job with id $id not found"))
-        yield response
+  private val updateJobRoute: AuthRoute[F] = {
+    case req @ PUT -> Root / UUIDVar(id) asAuthed user =>
+      req.request.validate[JobInfo] { jobInfo =>
+        jobs.find(id).flatMap {
+          case Some(job) if user.owns(job) || user.isAdmin => jobs.update(id, jobInfo).flatMap(updated => Ok(updated))
+          case Some(_) => Forbidden(FailureResponse(s"User ${user.email} is not authorized to update job with id $id"))
+          case None    => NotFound(FailureResponse(s"Job with id $id not found"))
+        }
       }
   }
 
@@ -106,10 +105,11 @@ class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F], authenticator:
 
   val securedRoutes: HttpRoutes[F] = securedRequestHandler.liftService(
     createJobRoute.restrictedTo(allRoles) |+|
-      deleteJobRoute.restrictedTo(allRoles)
+      deleteJobRoute.restrictedTo(allRoles) |+|
+      updateJobRoute.restrictedTo(allRoles)
   )
 
-  val nonSecuredRoutes: HttpRoutes[F] = allJobsRoute <+> findJobRoute <+> updateJobRoute
+  val nonSecuredRoutes: HttpRoutes[F] = allJobsRoute <+> findJobRoute
 
   val routes: HttpRoutes[F] = Router(
     "/jobs" -> (nonSecuredRoutes <+> securedRoutes)
